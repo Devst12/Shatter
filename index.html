@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Shatter Studio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&display=swap" rel="stylesheet">
+    <style>
+        @property --bg {
+            syntax: '<color>';
+            inherits: true;
+            initial-value: #1a28f0
+        }
+
+        @property --fg {
+            syntax: '<color>';
+            inherits: true;
+            initial-value: #f4f2ec
+        }
+
+        @property --glow {
+            syntax: '<color>';
+            inherits: true;
+            initial-value: #8fa0ff
+        }
+
+        :root {
+            --bg: #1a28f0;
+            --fg: #f4f2ec;
+            --glow: #8fa0ff;
+            --gr: 18;
+            --font: "Archivo Black", "Arial Black", Impact, sans-serif;
+            transition: --bg .7s cubic-bezier(.16, 1, .3, 1), --fg .7s cubic-bezier(.16, 1, .3, 1), --glow .7s cubic-bezier(.16, 1, .3, 1);
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        html,
+        body {
+            margin: 0
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--fg)
+        }
+
+        .track {
+            height: 320vh;
+            position: relative
+        }
+
+        .stage {
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            height: 100svh;
+            overflow: hidden
+        }
+
+        .world {
+            position: absolute;
+            inset: 0
+        }
+
+        /* ---- layers ---- */
+        .item {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            width: max-content;
+            cursor: grab;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+            color: var(--fg)
+        }
+
+        .item:active {
+            cursor: grabbing
+        }
+
+        .item[data-type=text] {
+            font-family: var(--font);
+            line-height: .9;
+            letter-spacing: -.025em;
+            text-align: center;
+            text-transform: uppercase;
+            white-space: pre
+        }
+
+        .item .body {
+            display: block
+        }
+
+        .item img {
+            max-width: none;
+            pointer-events: none;
+            -webkit-user-drag: none
+        }
+
+        .item.is-selected {
+            outline: 1.5px dashed var(--fg);
+            outline-offset: .25em
+        }
+
+        .glow .item {
+            filter: drop-shadow(0 0 calc(var(--gr)*.45px) var(--glow)) drop-shadow(0 0 calc(var(--gr)*1.1px) var(--glow))
+        }
+
+        .shard {
+            position: absolute;
+            display: none;
+            pointer-events: none;
+            backface-visibility: hidden
+        }
+
+        .shard>* {
+            position: absolute;
+            display: block
+        }
+
+        .is-broken .item {
+            cursor: default;
+            outline: none
+        }
+
+        .is-broken .item .body {
+            opacity: 0
+        }
+
+        .is-broken .shard {
+            display: block
+        }
+
+        /* ---- shatter button ---- */
+        .go {
+            position: fixed;
+            z-index: 30;
+            top: max(1rem, env(safe-area-inset-top));
+            left: 50%;
+            transform: translateX(-50%);
+            font: 700 .95rem/1 system-ui, sans-serif;
+            background: var(--fg);
+            color: var(--bg);
+            border: 0;
+            border-radius: 99px;
+            padding: .85rem 1.5rem;
+            cursor: pointer;
+            box-shadow: 0 6px 24px rgba(0, 0, 0, .25);
+            transition: transform .25s cubic-bezier(.16, 1, .3, 1)
+        }
+
+        .go:hover {
+            transform: translateX(-50%) scale(1.05)
+        }
+
+        .go:active {
+            transform: translateX(-50%) scale(.97)
+        }
+
+        /* ---- panel ---- */
+        .panel {
+            position: fixed;
+            z-index: 20;
+            left: 50%;
+            bottom: max(.75rem, env(safe-area-inset-bottom));
+            transform: translateX(-50%);
+            width: min(560px, calc(100vw - 1.5rem));
+            max-height: 58vh;
+            overflow: auto;
+            background: rgba(12, 12, 16, .86);
+            color: #f3f3f6;
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, .14);
+            border-radius: 12px;
+            font: 500 .8rem/1.2 system-ui, sans-serif;
+            padding: .8rem;
+            display: grid;
+            gap: .8rem;
+            align-content: start
+        }
+
+        @media(min-width:900px) {
+            .panel {
+                left: auto;
+                right: 1rem;
+                top: 1rem;
+                bottom: 1rem;
+                transform: none;
+                width: 330px;
+                max-height: none
+            }
+
+            .panel.is-closed {
+                bottom: auto
+            }
+        }
+
+        .panel.is-closed> :not(.bar) {
+            display: none
+        }
+
+        .panel button,
+        .panel label.btn {
+            font: inherit;
+            color: inherit;
+            cursor: pointer;
+            background: rgba(255, 255, 255, .08);
+            border: 1px solid rgba(255, 255, 255, .2);
+            border-radius: 8px;
+            padding: .55rem .7rem;
+            text-align: center
+        }
+
+        .panel button:hover,
+        .panel label.btn:hover {
+            background: rgba(255, 255, 255, .18)
+        }
+
+        .panel button:focus-visible,
+        .panel textarea:focus-visible {
+            outline: 2px solid #fff;
+            outline-offset: 1px
+        }
+
+        .bar {
+            display: flex;
+            gap: .5rem;
+            align-items: center
+        }
+
+        .seg {
+            display: flex;
+            flex: 1;
+            border: 1px solid rgba(255, 255, 255, .25);
+            border-radius: 8px;
+            overflow: hidden
+        }
+
+        .seg button {
+            flex: 1;
+            border: 0;
+            border-radius: 0;
+            background: none
+        }
+
+        .seg button.on {
+            background: #fff;
+            color: #111
+        }
+
+        .add {
+            display: flex;
+            gap: .5rem
+        }
+
+        .add textarea {
+            flex: 1;
+            min-width: 0;
+            resize: none;
+            height: 2.6rem;
+            font: 600 .95rem/1.2 system-ui, sans-serif;
+            color: #fff;
+            background: rgba(255, 255, 255, .08);
+            border: 1px solid rgba(255, 255, 255, .2);
+            border-radius: 8px;
+            padding: .6rem
+        }
+
+        .add-img,
+        [data-mode=image] .add-txt {
+            display: none
+        }
+
+        [data-mode=image] .add-img {
+            display: flex;
+            flex: 1;
+            gap: .5rem
+        }
+
+        [data-mode=image] .add-img label {
+            flex: 1
+        }
+
+        .layers {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: grid;
+            gap: .3rem;
+            max-height: 7.5rem;
+            overflow: auto
+        }
+
+        .layers button {
+            width: 100%;
+            text-align: left;
+            display: flex;
+            gap: .5rem;
+            align-items: center;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis
+        }
+
+        .layers button.on {
+            background: #fff;
+            color: #111
+        }
+
+        .layers b {
+            opacity: .6;
+            font-weight: 700;
+            width: 1rem;
+            flex: none
+        }
+
+        .tools {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: .4rem
+        }
+
+        .tools .wide {
+            grid-column: 1/-1
+        }
+
+        .field {
+            display: grid;
+            gap: .35rem
+        }
+
+        .field input[type=range] {
+            width: 100%;
+            accent-color: #fff;
+            height: 1.8rem;
+            margin: 0
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: .6rem
+        }
+
+        .field input[type=color] {
+            width: 100%;
+            height: 2rem;
+            padding: 0;
+            border: 1px solid rgba(255, 255, 255, .25);
+            border-radius: 6px;
+            background: none;
+            cursor: pointer
+        }
+
+        .presets {
+            display: flex;
+            gap: .5rem;
+            flex-wrap: wrap;
+            align-items: center
+        }
+
+        .swatch {
+            width: 1.9rem;
+            height: 1.9rem;
+            border-radius: 50% !important;
+            padding: 0 !important
+        }
+
+        small {
+            opacity: .65
+        }
+    </style>
+</head>
+
+<body>
+
+    <section class="track" id="track">
+        <div class="stage glow" id="stage">
+            <div class="world" id="world"></div>
+        </div>
+    </section>
+    <button class="go" id="go" type="button">Shatter</button>
+
+    <form class="panel" id="panel" data-mode="text" onsubmit="return false" aria-label="Editor">
+        <div class="bar">
+            <div class="seg" role="group" aria-label="Add type"><button type="button" data-m="text"
+                    class="on">Text</button><button type="button" data-m="image">Image</button></div>
+            <button type="button" id="toggle">Hide</button>
+        </div>
+        <div class="add">
+            <div class="add-txt add" style="flex:1"><textarea id="txt"
+                    placeholder="Type text, Enter to add (Shift+Enter = new line)"></textarea><button type="button"
+                    id="addTxt">Add</button></div>
+            <div class="add-img"><label class="btn">Choose image<input id="file" type="file" accept="image/*"
+                        hidden></label></div>
+        </div>
+        <ul class="layers" id="layers" aria-label="Layers, front first"></ul>
+        <div class="tools">
+            <label class="field wide">Size<input type="range" id="size" min="3" max="24" step=".5" value="12"></label>
+            <button type="button" id="front">To front</button><button type="button" id="fwd">Forward</button>
+            <button type="button" id="bwd">Backward</button><button type="button" id="back">To back</button>
+            <button type="button" id="del" class="wide">Delete layer</button>
+        </div>
+        <div class="row">
+            <label class="field">Background<input type="color" id="cBg" value="#1a28f0"></label>
+            <label class="field">Text<input type="color" id="cFg" value="#f4f2ec"></label>
+            <label class="field">Glow<input type="color" id="cGlow" value="#8fa0ff"></label>
+        </div>
+        <label class="field">Glow strength<input type="range" id="gStr" min="0" max="100" value="45"></label>
+        <div class="presets" id="presets"></div>
+        <small>Drag layers to place them. Scroll or press Shatter.</small>
+    </form>
+
+    <script>
+        const $ = id => document.getElementById(id), clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+        const stage = $("stage"), world = $("world"), track = $("track"), root = document.documentElement;
+        const items = []; let sel = null, p = 0, target = 0, raf = 0, drag = null, nextSize = 12, wasBroken = false;
+        const rng = s => () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+
+        class Item {
+            constructor(type, data, size, cx, cy, name) {
+                Object.assign(this, { type, data, size, cx, cy, name: name || data, shards: [] });
+                this.el = document.createElement("div");
+                this.el.className = "item"; this.el.dataset.type = type;
+                if (type === "text") { this.body = document.createElement("span"); this.body.textContent = data; }
+                else { this.body = new Image(); this.body.alt = this.name; this.body.draggable = false; this.body.onload = () => this.build(); this.body.src = data; }
+                this.body.className = "body";
+                this.el.append(this.body); world.append(this.el);
+                this.el.addEventListener("pointerdown", e => {
+                    if (p > .002) return;
+                    select(this); const r = stage.getBoundingClientRect();
+                    drag = { it: this, dx: e.clientX - r.left - this.cx * r.width, dy: e.clientY - r.top - this.cy * r.height };
+                    this.el.setPointerCapture(e.pointerId); e.preventDefault();
+                });
+                this.el.addEventListener("dblclick", () => {
+                    if (this.type !== "text" || p > .002) return;
+                    const v = prompt("Edit text", this.data); if (v == null || !v.trim()) return;
+                    this.data = this.name = v; this.body.textContent = v; this.build(); list();
+                });
+                this.apply();
+            }
+            apply() {
+                const s = this.size, st = this.el.style;
+                st.left = this.cx * 100 + "%"; st.top = this.cy * 100 + "%";
+                if (this.type === "text") st.fontSize = `min(${s}vw,${s * 18}px)`; else this.body.style.width = `min(${s * 5}vw,${s * 40}px)`;
+            }
+            build() {
+                this.shards.forEach(s => s.node.remove()); this.shards = [];
+                const W = this.el.offsetWidth, H = this.el.offsetHeight; if (!W || !H) return;
+                const Sw = stage.clientWidth, Sh = stage.clientHeight, rand = rng(7 + items.indexOf(this) * 13);
+                let cols = clamp(Math.round(W / 62), 3, 13), rows = clamp(Math.round(H / 62), 2, 8);
+                while (cols * rows * 2 > 130) cols > rows * 1.6 ? cols-- : rows--;
+                const pad = Math.min(H, W) * .12 + 4, cw = (W + 2 * pad) / cols, ch = (H + 2 * pad) / rows;
+                const P = [];
+                for (let r = 0; r <= rows; r++) {
+                    P[r] = []; for (let c = 0; c <= cols; c++) {
+                        const eX = !c || c === cols, eY = !r || r === rows;
+                        P[r][c] = [-pad + c * cw + (eX ? 0 : (rand() - .5) * cw * .7), -pad + r * ch + (eY ? 0 : (rand() - .5) * ch * .7)];
+                    }
+                }
+                const tris = [];
+                for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+                    const a = P[r][c], b = P[r][c + 1], d = P[r + 1][c], e = P[r + 1][c + 1];
+                    rand() < .5 ? tris.push([a, b, d], [b, e, d]) : tris.push([a, b, e], [a, e, d]);
+                }
+                // impact point = centre of the stage, expressed in this layer's local space
+                const ix = Sw / 2 - (this.cx * Sw - W / 2), iy = Sh / 2 - (this.cy * Sh - H / 2);
+                const maxD = Math.hypot(Sw / 2, Sh / 2), trav = Math.min(Sw, Sh);
+                tris.forEach(t => {
+                    const xs = t.map(q => q[0]), ys = t.map(q => q[1]);
+                    const bx = Math.min(...xs), by = Math.min(...ys), bw = Math.max(...xs) - bx, bh = Math.max(...ys) - by;
+                    const cx = (xs[0] + xs[1] + xs[2]) / 3, cy = (ys[0] + ys[1] + ys[2]) / 3;
+                    const node = document.createElement("div");
+                    node.className = "shard"; node.setAttribute("aria-hidden", "true");
+                    Object.assign(node.style, {
+                        left: bx + "px", top: by + "px", width: bw + "px", height: bh + "px",
+                        clipPath: `polygon(${t.map(q => `${q[0] - bx}px ${q[1] - by}px`).join(",")})`, transformOrigin: `${cx - bx}px ${cy - by}px`
+                    });
+                    let inner;
+                    if (this.type === "text") { inner = document.createElement("span"); inner.textContent = this.data; }
+                    else { inner = new Image(); inner.src = this.body.src; inner.alt = ""; inner.draggable = false; inner.style.height = H + "px"; }
+                    Object.assign(inner.style, { left: -bx + "px", top: -by + "px", width: W + "px" });
+                    node.append(inner); this.el.append(node);
+                    const vx = cx - ix, vy = cy - iy, near = clamp(Math.hypot(vx, vy) / maxD, 0, 1);
+                    const ang = Math.atan2(vy, vx) + (rand() - .5) * .6, pw = (.4 + rand() * .6) * (.6 + near * .4);
+                    this.shards.push({
+                        node, delay: near * .26 + rand() * .05,
+                        dx: Math.cos(ang) * pw * trav * .95, dy: Math.sin(ang) * pw * trav * .6, fall: (.35 + rand() * .8) * Sh * .6,
+                        rx: (rand() - .5) * 2 * (110 + near * 150), ry: (rand() - .5) * 2 * (110 + near * 150), rz: (rand() - .5) * 2 * (70 + near * 190),
+                        z: (rand() - .3) * .4
+                    });
+                });
+            }
+            render(p) {
+                for (const s of this.shards) {
+                    const t = clamp((p - s.delay) / .68, 0, 1), e = 1 - Math.pow(1 - t, 3.4);   // sharp burst, long drift
+                    s.node.style.transform = `perspective(900px) translate3d(${s.dx * e}px,${s.dy * e + s.fall * t * t}px,0) rotateX(${s.rx * e}deg) rotateY(${s.ry * e}deg) rotateZ(${s.rz * e}deg) scale(${1 + s.z * e})`;
+                    s.node.style.opacity = t < .7 ? 1 : 1 - (t - .7) / .3;
+                }
+            }
+        }
+
+        /* ---- scroll-driven progress ---- */
+        function read() {
+            const r = track.getBoundingClientRect();
+            target = clamp(-r.top / (r.height - innerHeight), 0, 1);
+            if (!raf) raf = requestAnimationFrame(tick);
+        }
+        function tick() {
+            p += (target - p) * .12; if (Math.abs(target - p) < .0005) p = target;
+            const broken = p > .002;
+            world.classList.toggle("is-broken", broken);
+            if (broken && !wasBroken && target > p && !matchMedia("(prefers-reduced-motion: reduce)").matches)
+                stage.animate([{ transform: "translate(0,0)" }, { transform: "translate(-7px,4px)" }, { transform: "translate(6px,-5px)" }, { transform: "translate(-3px,2px)" }, { transform: "translate(0,0)" }], { duration: 380, easing: "ease-out" });
+            wasBroken = broken;
+            $("go").textContent = p > .5 ? "Rebuild" : "Shatter";
+            if (broken) items.forEach(i => i.render(p));
+            raf = p === target ? 0 : requestAnimationFrame(tick);
+        }
+        addEventListener("scroll", read, { passive: true });
+        let rt; const refresh = () => { items.forEach(i => i.build()); read(); };
+        addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(refresh, 150); });
+        (document.fonts?.ready ?? Promise.resolve()).then(refresh);
+        $("go").onclick = () => scrollTo({ top: target > .5 ? track.offsetTop : track.offsetTop + track.offsetHeight - innerHeight, behavior: "smooth" });
+
+        /* ---- drag on canvas ---- */
+        addEventListener("pointermove", e => {
+            if (!drag) return; const r = stage.getBoundingClientRect(), it = drag.it;
+            it.cx = clamp((e.clientX - r.left - drag.dx) / r.width, 0, 1); it.cy = clamp((e.clientY - r.top - drag.dy) / r.height, 0, 1); it.apply();
+        });
+        addEventListener("pointerup", () => { if (drag) { drag.it.build(); drag = null; } });
+        stage.addEventListener("pointerdown", e => { if (e.target === stage || e.target === world) select(null); });
+        addEventListener("keydown", e => { if ((e.key === "Delete" || e.key === "Backspace") && sel && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) remove(); });
+
+        /* ---- layers ---- */
+        function reindex() { items.forEach((it, i) => it.el.style.zIndex = i + 1); list(); }
+        function select(it) {
+            sel = it; items.forEach(i => i.el.classList.toggle("is-selected", i === it));
+            $("size").value = it ? it.size : nextSize; list();
+        }
+        function list() {
+            const ul = $("layers"); ul.textContent = "";
+            [...items].reverse().forEach(it => {
+                const li = document.createElement("li"), b = document.createElement("button"), k = document.createElement("b");
+                b.type = "button"; b.className = it === sel ? "on" : ""; k.textContent = it.type === "text" ? "T" : "▣";
+                b.append(k, (it.name || "").replace(/\s+/g, " ").slice(0, 28)); b.onclick = () => select(it); li.append(b); ul.append(li);
+            });
+        }
+        function move(to) { if (!sel) return; const i = items.indexOf(sel), j = clamp(to(i), 0, items.length - 1); items.splice(i, 1); items.splice(j, 0, sel); reindex(); }
+        $("fwd").onclick = () => move(i => i + 1); $("bwd").onclick = () => move(i => i - 1);
+        $("front").onclick = () => move(() => items.length); $("back").onclick = () => move(() => 0);
+        function remove() { if (!sel) return; sel.el.remove(); items.splice(items.indexOf(sel), 1); select(null); reindex(); }
+        $("del").onclick = remove;
+        let st; $("size").oninput = e => {
+            const v = +e.target.value; if (!sel) { nextSize = v; return; }
+            sel.size = v; sel.apply(); clearTimeout(st); st = setTimeout(() => sel && sel.build(), 90);
+        };
+
+        function add(type, data, name) {
+            const it = new Item(type, data, nextSize, .5, clamp(.3 + .14 * (items.length % 5), .2, .8), name);
+            items.push(it); reindex(); select(it); it.build();
+        }
+        function addText() { const v = $("txt").value.trim(); if (!v) return; add("text", v); $("txt").value = ""; }
+        $("addTxt").onclick = addText;
+        $("txt").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); addText(); } });
+        $("file").onchange = e => { const f = e.target.files[0]; if (f) add("image", URL.createObjectURL(f), f.name); e.target.value = ""; };
+        document.querySelectorAll("[data-m]").forEach(b => b.onclick = () => {
+            $("panel").dataset.mode = b.dataset.m; document.querySelectorAll("[data-m]").forEach(x => x.classList.toggle("on", x === b));
+        });
+        $("toggle").onclick = () => { const c = $("panel").classList.toggle("is-closed"); $("toggle").textContent = c ? "Edit" : "Hide"; };
+
+        /* ---- colours & presets ---- */
+        function colors() {
+            root.style.setProperty("--bg", $("cBg").value); root.style.setProperty("--fg", $("cFg").value); root.style.setProperty("--glow", $("cGlow").value);
+            const g = +$("gStr").value; root.style.setProperty("--gr", g); stage.classList.toggle("glow", g > 0);
+        }
+        ["cBg", "cFg", "cGlow", "gStr"].forEach(id => $(id).addEventListener("input", colors));
+        [["Cobalt", "#1a28f0", "#f4f2ec", "#8fa0ff", 45], ["Ember", "#140a08", "#ffe9d6", "#ff5a1f", 70], ["Mint", "#07110e", "#d9fff0", "#2dffb0", 65],
+        ["Orchid", "#1a0b2e", "#fff0fb", "#ff3df0", 75], ["Paper", "#ece8df", "#14110f", "#14110f", 0], ["Signal", "#e8ff3a", "#101010", "#101010", 0]].forEach(([n, bg, fg, gl, g]) => {
+            const b = document.createElement("button"); b.type = "button"; b.className = "swatch"; b.title = n; b.setAttribute("aria-label", n + " preset");
+            b.style.background = `linear-gradient(135deg,${bg} 50%,${fg} 50%)`; b.style.boxShadow = g ? `0 0 10px ${gl}` : "none";
+            b.onclick = () => { $("cBg").value = bg; $("cFg").value = fg; $("cGlow").value = gl; $("gStr").value = g; colors(); };
+            $("presets").append(b);
+        });
+
+        add("text", "HELLO\nWORLD"); select(null); colors();
+    </script>
+</body>
+
+</html>
